@@ -5,14 +5,7 @@
 #include "stackqueue.h"
 #define DAYS 31                              //Day입니다
 #define SPEED (500.0)                        // 비행기의 속력입니다 500km/hour
-#define MAX_QUEUE 100
 
-/*
-typedef struct {
-	int front, rear;
-	void* items[MAX_QUEUE];
-} Queue;
-*/
 
 typedef struct point {
 	char name;
@@ -32,6 +25,7 @@ typedef struct a {
 typedef struct {
 	char name[20], source, destination;
 	int departureTime, departureDate, arrivalTime, arrivalDate, flightTime;
+	int level;
 	char flightPath[30];
 
 }Passenger;
@@ -58,6 +52,8 @@ node* successor(node* cur);
 void delete_fixup(node* root, node* cur);
 node* delet(node* root, node* nod);
 
+void printreserve(node* root);
+
 int height(node* root);
 
 //Graph============================================
@@ -74,7 +70,7 @@ City* ShortestPath(Graph* pgraph, int src, int dst);   // pgraph내에 내용을
 City* ExtractMin(City** Q, int* qNum);            // ShortestPath내에서만 쓰이는 함수로서 수도코드의 ExtractMin과 동일합니다.
 void PrintArray(char* arr);         // char array인쇄.
 void PrintResult(Passenger *values);
-Passenger* module(char* name, char source, char destination, int date);
+Passenger* module(char* name, char source, char destination, int date, int level);
 
 Graph *pgraph, ** pgraphs;
 
@@ -83,7 +79,7 @@ int main() {
 	srand(time(NULL));
 
 	int num, day;
-	char name[20] = {'\0'};
+	char name[20] = { '\0' };
 	char src, dst;
 	int reservationNumber;
 	int seat, level;
@@ -92,102 +88,130 @@ int main() {
 	node* temp = NULL;
 	node* root = NULL;
 	Passenger *values = NULL;
+	node** latest = (node* *)malloc(sizeof(node*));
 
 	pgraph = CreateGraph(26);         //26개 city를 생성합니다.
 	AddPaths(pgraph, 100);                  //해당 26개 city간에 path를 무작위로 100개를 생성합니다.
 	pgraphs = CreateTimeTable(pgraph);   //위에 생성된 path에 무작위 departureTime을 부여한 graph 31개를 생성합니다.
 
 										 //from here//
-	
-	printf("Graph project\n");
-	/*printf("Enter the name: "); scanf("%s", &name); getchar();
-	printf("Enter the day: "); scanf("%d", &day); getchar();
-	printf("Enter the source city (a~z): "); scanf("%c", &src); getchar();
-	printf("Enter the destination city (a~z): "); scanf("%c", &dst); getchar();*/
-	//day = 31; src = 'e'; dst = 'f';
+
+										 //printf("Graph project\n");
+										 /*printf("Enter the name: "); scanf("%s", &name); getchar();
+										 printf("Enter the day: "); scanf("%d", &day); getchar();
+										 printf("Enter the source city (a~z): "); scanf("%c", &src); getchar();
+										 printf("Enter the destination city (a~z): "); scanf("%c", &dst); getchar();*/
+										 //day = 31; src = 'e'; dst = 'f';
+
 	int length;
+
+	printf("Added 500 reservations\n");
+	printf("Latest 10 Reservations------------------------\n");
+
 	for (num = 0; num < 500; num++) {
 
-		length = rand() % 4 + 3;
-		name[0] = rand() % 26 + 65;
+		length = rand() % 4 + 3;		//length of name
+		name[0] = rand() % 26 + 65;		//first character of name(Cap)
 		for (int i = 1; i < length; i++) {
-			name[i] = rand() % 26 + 97;
+			name[i] = rand() % 26 + 97;		//orthrt characters of name
 		}
 
 		day = rand() % 31 + 1;
-		src = rand() % 26 + 97; // asci맞나 확인
+		src = rand() % 26 + 97;
 		dst = rand() % 26 + 97;
 		while (dst == src) dst = rand() % 26 + 97;
 
+		//확률에 따라 grade 배정
 		seat = rand() % 100;
 		if (seat < 4) level = 1;
 		else if (seat < 11) level = 2;
 		else level = 3;
 
-		//예약번호 - 등급/예약수/날짜/출발지/도착지
+		//예약번호 - 등급/예약수/날짜/출발지/도착지 10자리 수
 		//reservationNumber = level * 1000000000 + num * 1000000 + day * 10000 + src * 100 + dst;
-		
-		values = module(name, src, dst, day);         //여기에 name, source, destination, date를 입력하면!!
-		PrintResult(values);  //name, source, destination, departure time, departure date, arrival time, arrival date, flight path, flight time을 반환합니다.
-				
-		temp = makenode(reservationNumber);
+
+		values = module(name, src, dst, day, level);         //여기에 name, source, destination, date를 입력하면!!
+															 //PrintResult(values);  //name, source, destination, departure time, departure date, arrival time, arrival date, flight path, flight time을 반환합니다.
+
+		//temp = makenode(reservationNumber);
+		temp = makenode(num);
 		temp->passenger = values;
 		root = insert(root, temp);
+
+		if (num >= 490) printreserve(temp);
 	}
+
 
 	//input
 	int rnum;
 	int choice = 0;
+	char yn;
 	while (1) {
 
-		printf("What do you want to do?\n");
+		printf("\nWhat do you want to do?\n");
 		printf("1. Reservation\n");
-		printf("2. Cancle\n");
+		printf("2. Cancel\n");
 
 		scanf("%d", &choice);
 
 		switch (choice) {
-		case 1: 
-			printf("\n==================== Reservation ======================= \n");
+		case 1:
+			printf("==================== Reservation ======================= \n");
 			printf("Enter the name: "); scanf("%s", &name); getchar();
 			printf("Enter the day: "); scanf("%d", &day); getchar();
 			printf("Enter the source city (a~z): "); scanf("%c", &src); getchar();
 			printf("Enter the destination city (a~z): "); scanf("%c", &dst); getchar();
+			printf("Enter the level of seat(1~3): "); scanf("%d", &day); getchar();
 			num++;
 
 			//reservationNumber = level * 1000000000 + num * 1000000 + day * 10000 + src * 100 + dst;
 
-			values = module(name, src, dst, day);
+			values = module(name, src, dst, day, level);
 
-			temp = makenode(reservationNumber);
+			//temp = makenode(reservationNumber);
+			temp = makenode(num);
 			temp->passenger = values;
 			root = insert(root, temp);
 
+
+			printf("Reservated--------------------------------------------");
+			printreserve(temp);
+
 			h = height(root);
 			printf("Number of reservation: %d\n", num);
-			printf("Height is %d\n", height);
+			printf("Height is %d\n", h);
 			break;
 
 		case 2:
-			printf("\n====================== Cancel ========================== \n");
+			printf("====================== Cancel ========================== \n");
 			printf("Enter the reservation number for cancel");
 			scanf("%d", &rnum);
 
-			root = delet(root, isexist(root, rnum));
+			while (isexist(root, rnum) == NULL) {
+				printf("There are no reservation!\n");
+				printf("Pleasse enter the number correctly.\n");
+				scanf("%d", &rnum);
+			}
 
+			temp = isexist(root, rnum);
+			printreserve(temp);			
+
+			root = delet(root, isexist(root, rnum));
 			num--;
+
+			printf("The reservation is canceled.\n");
 
 			h = height(root);
 			printf("Number of reservation: %d\n", num);
-			printf("Height is %d\n", height);
+			printf("Height is %d\n", h);
+
 			break;
 
 		default:
 			printf("Wrong number.\nPlease input number correctly\n");
 			break;
 		}
-	}
-													   //to here//
+	}                                          //to here//
 
 	DestroyGraph(pgraph);                  //메모리해제
 	for (int i = 0; i < DAYS; i++) DestroyGraph(pgraphs[i]);
@@ -206,10 +230,11 @@ void PrintResult(Passenger* values) {
 	PrintArray(values->flightPath);
 }
 
-Passenger* module(char* name, char source, char destination, int date) {
+Passenger* module(char* name, char source, char destination, int date, int level) {
 	Passenger* result = (Passenger*)malloc(sizeof(Passenger));
 	char src = source, dst = destination;
 	int day = date;
+	int lev = level;
 	for (int i = 0; i < 20; i++) result->name[i] = name[i];
 
 
@@ -357,7 +382,7 @@ Graph** CreateTimeTable(Graph* pgraph) {
 	for (int i = 0; i < DAYS; i++) {
 		heads1 = pgraph->heads;
 		heads2 = (City * *)malloc(sizeof(City*) * (pgraph->num));
-		if (NULL == graphs) return;
+		if (NULL == graphs) return 0;
 		graphs[i] = (Graph*)malloc(sizeof(Graph));
 		graphs[i]->heads = heads2;
 		graphs[i]->num = pgraph->num;
@@ -497,29 +522,32 @@ node* makenode(int key) {
 
 	return temp;
 }
-/*
+
 void printreserve(node * root) {
 
 	int hour, min;
 
-	printf("Reservation---------------------------------------\n");
-	printf("Reservation Number: %d\n", root->passenger->reservationNumber);
-	printf("Name of passemger : %s\n", root->passenger->name);
-	printf("From : %s", root->passenger->source->name);
+	//printf("Reservated---------------------------------------\n");
+	printf("Reservation Number: %d\n", root->key);
+	printf("Name of passenger : %s\n", root->passenger->name);
+	if (root->passenger->level == 1) printf("Grade of seat : First class\n");
+	else if (root->passenger->level == 2) printf("Grade of seat : Business class\n");
+	else if (root->passenger->level == 3) printf("Grade of seat : Economy class\n");
+	printf("From : %c\n", root->passenger->source);
 	hour = root->passenger->departureTime / 60;
 	min = root->passenger->departureTime % 60;
-
-	printf("Date & time : %d / %d : %d", root->passenger->departureDate, hour, min);
-	printf("To : %s", root->passenger->destination->name);
-	printf("Date & time : %d, %d", root->passenger->departureDate, hour, min);
-	printf("Flight time : %d", root->passenger->flighttime);
-
-	//node num change
-	//height change print
+	printf("Date & time : %d / %d : %d\n", root->passenger->departureDate, hour, min);
+	printf("To : %c\n", root->passenger->destination);
+	hour = root->passenger->arrivalTime / 60;
+	min = root->passenger->arrivalTime % 60;
+	printf("Date & time : %d / %d : %d\n", root->passenger->arrivalDate, hour, min);
+	hour = root->passenger->flightTime / 60;
+	min = root->passenger->flightTime % 60;
+	printf("Flight time : %d : %d\n", hour, min);
 
 
 }
-*/
+
 int height(node* root) {
 	int h;
 	if (root == NULL)
@@ -536,11 +564,6 @@ int height(node* root) {
 
 
 
-
-
-
-
-
 //이 아래로는 기본적인 RBT의 기능 구현을 위한 함수들입니다.
 
 node* isexist(node* root, int key) {
@@ -550,7 +573,6 @@ node* isexist(node* root, int key) {
 	else
 		return isexist(root->rightc, key);
 }
-
 void Lrotate(node* root, node* cur) {
 	node* par = cur->rightc;
 
@@ -567,7 +589,6 @@ void Lrotate(node* root, node* cur) {
 	par->leftc = cur;
 	cur->parent = par;
 }
-
 void Rrotate(node* root, node* cur) {
 	node* par = cur->leftc;
 
@@ -584,7 +605,6 @@ void Rrotate(node* root, node* cur) {
 	par->rightc = cur;
 	cur->parent = par;
 }
-
 void insert_fixup(node* root, node* cur) {
 	node* y = NULL;
 
@@ -628,7 +648,6 @@ void insert_fixup(node* root, node* cur) {
 	}
 	root->color = 0;
 }
-
 node* insert(node* root, node* nod) {
 	node* par = NULL;
 	node* cur = root;
@@ -659,7 +678,6 @@ node* insert(node* root, node* nod) {
 
 	return root;
 }
-
 node* minnode(node* cur) {
 	node* temp = cur;
 
@@ -668,7 +686,6 @@ node* minnode(node* cur) {
 	}
 	return temp;
 }
-
 node* successor(node* cur) {
 	node* par = cur->parent;
 
@@ -680,7 +697,6 @@ node* successor(node* cur) {
 	}
 	return par;
 }
-
 void delete_fixup(node* root, node* cur) {
 
 	node* temp = NULL;
@@ -743,7 +759,6 @@ void delete_fixup(node* root, node* cur) {
 	if (cur != NULL)
 		cur->color = 0;
 }
-
 node* delet(node* root, node* nod) {
 	node* par = NULL;
 	node* cur = NULL;
