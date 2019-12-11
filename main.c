@@ -4,7 +4,8 @@
 #include <math.h>
 #include "stackqueue.h"
 #define DAYS 31                              //Day입니다
-#define SPEED (500.0)                        // 비행기의 속력입니다 500km/hour
+#define SPEED (500.0)  // 비행기의 속력입니다 500km/hour
+
 
 
 typedef struct point {
@@ -15,7 +16,7 @@ typedef struct point {
 	char paths[26];                           //needTime은 다이스트라 알고리즘의 해당 city까지 필요한 cost로서, 경로상의 city와 departureTime과 distance에 의해 산출됩니다.
 	int pathsNum;                           //paths[26]은 해당 city까지 최단거리로 오는 city의 리스트입니다. pathsNum은 paths[26]의 길이를 나타냅니다
 }City;
-//needTime paths pathsNum이 상속의 대상
+
 typedef struct a {
 	int num;
 	City** heads;
@@ -24,8 +25,7 @@ typedef struct a {
 
 typedef struct {
 	char name[20], source, destination;
-	int departureTime, departureDate,
-		arrivalTime, arrivalDate, flightTime;
+	int departureTime, departureDate, arrivalTime, arrivalDate, flightTime;
 	int level;
 	char flightPath[30];
 
@@ -34,24 +34,30 @@ typedef struct {
 typedef struct Node {
 	int key;//= reservation number
 	int color;
-	struct Node* parent;
-	struct Node* leftc;
-	struct Node* rightc;
-	Passenger* passenger;
+	struct Node * parent;
+	struct Node * leftc;
+	struct Node * rightc;
+	Passenger * passenger;
 }node;
+node* root;
+node* nil;
+
+
 
 
 //RBT==============================================
 node* makenode(int key);
+void initTree();
 node* isexist(node* root, int key);
-void Lrotate(node* root, node* cur);
-void Rrotate(node* root, node* cur);
-void insert_fixup(node* root, node* cur);
-node* insert(node* root, node* nod);
+void Lrotate( node* cur);
+void Rrotate(node* cur);
+void insert_fixup( node* cur);
+node* insert(node* nod);
 node* minnode(node* cur);
 node* successor(node* cur);
-void delete_fixup(node* root, node* cur);
-node* delet(node* root, node* nod);
+void delete_fixup( node* cur);
+node* delet(node* nod);
+void printRBT(node *root, int level);
 
 void printreserve(node* root);
 int height(node* root);
@@ -65,15 +71,15 @@ void AddPaths(Graph* pgraph, int num);            //pgraph내에 num개만큼 �
 int PathExists(Graph* pgraph, char src, char dst);  // AddPath에만 활용되는 함수입니다. 기존 그래프에 동일 path가 생성되어있는지 확인합니다.
 Graph** CreateTimeTable(Graph* pgraph);            //기본 그래프 pgraph에 departure time을 할당한 31가지 그래프를 만듭니다.
 void PrintGraph(Graph* pgraph);                  //1개 graph의 내용을 출력합니다.
-City* ShortestPath(Graph** pgraphs, int depDate, int src, int dst);   // pgraph내에 내용을 기록한 후 최종 목적도시를 반환합니다.77 
-//여기서 needTime을 참조하면 도착예정시간, paths를 참조하면 경로상city가 담긴array, pathsNum은 pathsArray의 길이를 나타냅니다.
+City* ShortestPath(Graph** pgraphs, int depDate, int src, int dst);   // pgraph내에 내용을 기록한 후 최종 목적도시를 반환합니다. 
+													   //여기서 needTime을 참조하면 도착예정시간, paths를 참조하면 경로상city가 담긴array, pathsNum은 pathsArray의 길이를 나타냅니다.
 City* ExtractMin(City** Q, int* qNum);            // ShortestPath내에서만 쓰이는 함수로서 수도코드의 ExtractMin과 동일합니다.
-void PrintArray(char* arr);         // char array인쇄.
-void PrintResult(Passenger* values);
-Passenger* module(char* name, char source, char destination, int date, int level);
 void SetDepartureTime(Graph** pgraphs, int nowDate);
-Graph* pgraph, ** pgraphs;
+void PrintArray(char* arr);         // char array인쇄.
+void PrintResult(Passenger *values);
+Passenger* module(char* name, char source, char destination, int date, int level);
 
+Graph *pgraph, ** pgraphs;
 
 
 int main() {
@@ -85,11 +91,13 @@ int main() {
 	int reservationNumber;
 	int seat, level;
 	int h = 0;
+	int status = 1;
 
 	node* temp = NULL;
-	node* root = NULL;
-	Passenger* values = NULL;
-	node** latest = (node * *)malloc(sizeof(node*));
+	Passenger *values = NULL;
+	node** latest = (node* *)malloc(sizeof(node*));
+
+	initTree();
 
 	pgraph = CreateGraph(26);         //26개 city를 생성합니다.
 	AddPaths(pgraph, 100);                  //해당 26개 city간에 path를 무작위로 100개를 생성합니다.
@@ -101,8 +109,9 @@ int main() {
 	printf("Latest 10 Reservations------------------------\n");
 
 	for (num = 0; num < 500; num++) {
+		for (int i = 0; i < 20; i++) name[i] = '\0';
 
-		length = rand() % 4 + 3;      //length of name
+		length = rand() % 5 + 3;      //length of name
 		name[0] = rand() % 26 + 65;      //first character of name(Cap)
 		for (int i = 1; i < length; i++) {
 			name[i] = rand() % 26 + 97;      //orthrt characters of name
@@ -120,43 +129,71 @@ int main() {
 		else level = 3;
 
 
-		values = module(name, src, dst, day, level);         //여기에 name, source, destination, date를 입력하면!!
+		values = module(name, src, dst, day, level);   //여기에 name, source, destination, date를 입력하면!!		
+		if (values == NULL) {
+			num--;
+			continue;
+		}
 		temp = makenode(num);
 		temp->passenger = values;
-		root = insert(root, temp);
+		insert(temp);
 
 		if (num >= 490) printreserve(temp);
 	}
+
+	//printRBT(root, 1);
 
 	//input
 	int rnum;
 	int choice = 0;
 	char yn;
-	while (1) {
+	while (status) {
 
 		printf("\nWhat do you want to do?\n");
 		printf("1. Reservation\n");
 		printf("2. Cancel\n");
+		printf("3. Search\n");
+		printf("4. Exit\n");
 
+		
 		scanf("%d", &choice);
 
 		switch (choice) {
 		case 1:
-			printf("==================== Reservation ======================= \n");
+			printf("\n==================== Reservation ======================= \n");
 			printf("Enter the name: "); scanf("%s", &name); getchar();
-			printf("Enter the day: "); scanf("%d", &day); getchar();
+			printf("Enter the day(1~31): "); scanf("%d", &day); getchar();
+			while (!(day >= 1 && day <= 31)) {
+				printf("Wrong Input! Please input number of 1 ~ 31.\n");
+				printf("Enter the day: "); scanf("%d", &day); getchar();
+			}
 			printf("Enter the source city (a~z): "); scanf("%c", &src); getchar();
+			while (!(src >= 'a' && src <= 'z')) {
+				printf("Wrong Input! Please input a ~ z.\n");
+				printf("Enter the source city: "); scanf("%c", &src); getchar();
+			}
 			printf("Enter the destination city (a~z): "); scanf("%c", &dst); getchar();
-			printf("Enter the level of seat(1~3): "); scanf("%d", &day); getchar();
+			while (!(dst >= 'a' && dst <= 'z')) {
+				printf("Wrong Input! Please input a ~ z.\n");
+				printf("Enter the destination city: "); scanf("%c", &dst); getchar();
+			}
+			printf("Enter the level of seat(1~3): "); scanf("%d", &level); getchar();
+			while (!(level >= 1 && level <= 3)) {
+				printf("Wrong Input! Please input number of 1 ~ 3.\n");
+				printf("Enter the level of seat: "); scanf("%d", &level); getchar();
+			}
 			num++;
 
 			values = module(name, src, dst, day, level);
-
+			if (values == NULL) {
+				printf("Paths not found!\n");
+				break;
+			}
 			temp = makenode(num);
 			temp->passenger = values;
-			root = insert(root, temp);
+			insert(temp);
 
-			printf("Reservated--------------------------------------------");
+			printf("Reservated-------------------------------------------- \n");
 			printreserve(temp);
 
 			h = height(root);
@@ -165,20 +202,20 @@ int main() {
 			break;
 
 		case 2:
-			printf("====================== Cancel ========================== \n");
-			printf("Enter the reservation number for cancel");
+			printf("\n====================== Cancel ========================== \n");
+			printf("Enter the reservation number for cancel: ");
 			scanf("%d", &rnum);
-
-			while (isexist(root, rnum) == NULL) {
+			temp = isexist(root, rnum);
+			while (temp == NULL || temp->key == -1) {
 				printf("There are no reservation!\n");
 				printf("Pleasse enter the number correctly.\n");
 				scanf("%d", &rnum);
+				temp = isexist(root, rnum);
 			}
 
-			temp = isexist(root, rnum);
 			printreserve(temp);
 
-			root = delet(root, isexist(root, rnum));
+			delet(isexist(root, rnum));
 			num--;
 
 			printf("The reservation is canceled.\n");
@@ -187,6 +224,22 @@ int main() {
 			printf("Number of reservation: %d\n", num);
 			printf("Height is %d\n", h);
 
+			break;
+		case 3:
+			printf("\n====================== Search ========================== \n");
+			printf("Enter the reservation number for search: ");
+			scanf("%d", &rnum);
+			temp = isexist(root, rnum);
+			while (temp == NULL || temp->key == -1) {
+				printf("There are no reservation!\n");
+				printf("Pleasse enter the number correctly.\n");
+				scanf("%d", &rnum);
+				temp = isexist(root, rnum);
+			}
+			printreserve(temp);
+			break;
+		case 4:
+			status = 0;
 			break;
 
 		default:
@@ -199,10 +252,6 @@ int main() {
 	for (int i = 0; i < DAYS; i++) DestroyGraph(pgraphs[i]);
 	return 0;
 }
-
-
-
-
 Passenger* module(char* name, char source, char destination, int date, int level) {
 	Passenger* result = (Passenger*)malloc(sizeof(Passenger));
 	char src = source, dst = destination;
@@ -224,7 +273,7 @@ Passenger* module(char* name, char source, char destination, int date, int level
 			adj = adj->next;
 			if (adj->name == dstCity->paths[1]) {
 				result->departureTime = adj->departureTime % (24 * 60);	//시간을 구하긴위해선 하루=24*60
-																	//의나머지를구하여한다.
+																		//의나머지를구하여한다.
 				result->departureDate = adj->departureTime / (24 * 60) + 1;//나눗셈의 몫+1값이 date가 될것이다.
 				break;
 			}
@@ -233,8 +282,8 @@ Passenger* module(char* name, char source, char destination, int date, int level
 		result->arrivalDate = dstCity->needTime / (24 * 60) + 1;	//Time은 분기준,date하나는 24*60분
 		result->flightTime = (dstCity->needTime) - (adj->departureTime);
 		/*if (result->arrivalTime / 60 >= 24) {
-			result->arrivalTime -= 24 * 60;
-			result->arrivalDate++;
+		result->arrivalTime -= 24 * 60;
+		result->arrivalDate++;
 		}*/// arrivaltime은 modulus를 취하므로 24시를 초과할일 없다.=>주석처리
 
 	}
@@ -274,7 +323,7 @@ Graph* CreateGraph(int num) {
 	return pgraph;
 }
 void DestroyGraph(Graph* pgraph) {
-	City* cur, * tmp;
+	City* cur, *tmp;
 	for (int i = 0; i < pgraph->num; i++) {
 		cur = pgraph->heads[i];
 		while (cur != NULL) {
@@ -292,7 +341,7 @@ void AddPath(Graph* pgraph, char src, char dest) {
 		//printf("Path exists!\n");
 		return;
 	}
-	City* newCity1, * newCity2, * head1, * head2, * cur;
+	City* newCity1, *newCity2, *head1, *head2, *cur;
 	int distance;
 	head1 = pgraph->heads[dest - 'a'];
 	head2 = pgraph->heads[src - 'a'];
@@ -333,7 +382,7 @@ void AddPaths(Graph* pgraph, int num) {
 }
 int PathExists(Graph* pgraph, char src, char dst) {
 	int result = 0;
-	City** heads = pgraph->heads, * cur;
+	City** heads = pgraph->heads, *cur;
 	cur = heads[src - 'a'];
 	while (cur->next != NULL) {
 		cur = cur->next;
@@ -347,7 +396,7 @@ int PathExists(Graph* pgraph, char src, char dst) {
 }
 Graph** CreateTimeTable(Graph* pgraph) {
 	Graph** graphs = (Graph * *)malloc(sizeof(Graph*) * (DAYS + 1));
-	City** heads1, ** heads2, * cur1, * cur2, * new;
+	City** heads1, ** heads2, *cur1, *cur2, *new;
 	//
 	for (int i = 0; i < DAYS + 1; i++) {
 		heads1 = pgraph->heads;
@@ -397,7 +446,7 @@ City* ExtractMin(City** Q, int* qNum) {	//모든 City중에서 NeedTime이 가�
 	int min = (1 << 30) - 1, mindex = -1;
 	for (int i = 0; i < *qNum; i++) {
 		if (Q[i]->needTime == -1) continue;
-		if (min > (Q[i]->needTime)) {
+		if (min >(Q[i]->needTime)) {
 			min = Q[i]->needTime;
 			mindex = i;
 		}
@@ -418,8 +467,8 @@ City* ExtractMin(City** Q, int* qNum) {	//모든 City중에서 NeedTime이 가�
 	return result;
 }
 void SetDepartureTime(Graph** pgraphs, int nowDate) {	//해당날짜의 departureTime으로 설정
-	//printf("hihi%d\n", nowDate);
-	City** heads1 = pgraphs[nowDate - 1]->heads, ** heads2 = pgraphs[31]->heads, * adj, * adj2;
+														//printf("hihi%d\n", nowDate);
+	City** heads1 = pgraphs[nowDate - 1]->heads, ** heads2 = pgraphs[31]->heads, *adj, *adj2;
 	//heads2 = pgraphs[nowDate]->heads;
 	for (int i = 0; i < pgraphs[31]->num; i++) {
 		adj = heads1[i];
@@ -439,10 +488,10 @@ City* ShortestPath(Graph** pgraphs, int depDate, int src, int dst) {
 	Graph* pgraph = pgraphs[31];			//pgraph는 항상 pgraph[31]로 고정, 추후에 departuretime만
 	SetDepartureTime(pgraphs, depDate);		//해당날짜로 바꿔서 계속씀
 	char oldPaths[26] = { 0, };				//paths[26]복원용
-	City** heads = pgraph->heads, ** Q, * u = NULL, * adj, * v;
+	City** heads = pgraph->heads, ** Q, *u = NULL, *adj, *v;
 	Q = (City * *)malloc(sizeof(City*) * pgraph->num);
 	//알고리즘에 따른 City들의 집합 Q구현
-	int qNum = pgraph->num, oldNeedTime, oldPathsNum, arrive, nowDate,oldnowDate;
+	int qNum = pgraph->num, oldNeedTime, oldPathsNum, arrive, nowDate, oldnowDate;
 	for (int i = 0; i < pgraphs[31]->num; i++) {
 		if (i == src - 'a') {
 			heads[i]->needTime = 60 * 24 * (depDate - 1);//해당출발날짜의 최소시간
@@ -461,8 +510,8 @@ City* ShortestPath(Graph** pgraphs, int depDate, int src, int dst) {
 		u = ExtractMin(Q, &qNum);				//현재 relaxing할 city를 추출합니다
 		if (u == NULL) break;					//더이상 extract할것이없다?끝
 		nowDate = u->needTime / (60 * 24) + 1;		//그 도시에 따른 현재날짜 계산
-		if (nowDate > 31 || nowDate-depDate>=3) break;//날짜가 31일 넘어가면 비행기없음,departureTIme테이블없음
-												//아니면 3일자 여행 반복중이면 곤란하다.
+		if (nowDate > 31 || nowDate - depDate >= 3) break;//날짜가 31일 넘어가면 비행기없음,departureTIme테이블없음
+														  //아니면 3일자 여행 반복중이면 곤란하다.
 		if (u->name == dst) break;				//dst도시의 최솟값을 확보했다..
 		SetDepartureTime(pgraphs, nowDate);		//날짜에 따른 departureTime반영
 		EnQueue(S, u);							//뭔지모르겠다 ,일단 S에넣어서저장해줍니다
@@ -499,7 +548,7 @@ City* ShortestPath(Graph** pgraphs, int depDate, int src, int dst) {
 				else {
 					SetDepartureTime(pgraphs, oldnowDate);		//날짜에 따른 departureTime반영
 					nowDate = oldnowDate;						// nowdate복구
-					//if(oldnowDate!=2) printf("hihi%d", oldnowDate);
+																//if(oldnowDate!=2) printf("hihi%d", oldnowDate);
 					break;
 				}
 			}
@@ -510,15 +559,13 @@ City* ShortestPath(Graph** pgraphs, int depDate, int src, int dst) {
 	return heads[dst - 'a'];
 }
 
-
-
 //=============================RBT======================================
 
 node* makenode(int key) {
 	node* temp = (node*)malloc(sizeof(node));
-	temp->parent = NULL;
-	temp->leftc = NULL;
-	temp->rightc = NULL;
+	temp->parent = nil;
+	temp->leftc = nil;
+	temp->rightc = nil;
 	temp->passenger = NULL;
 	temp->key = key;
 	temp->color = 0;
@@ -526,42 +573,30 @@ node* makenode(int key) {
 	return temp;
 }
 
-void printreserve(node* root) {
+void printreserve(node * root) {
 	if (root == NULL || root->passenger == NULL) return;
 	int hour, min;
 
 	//printf("Reservated---------------------------------------\n");
 	printf("Reservation Number: %d\n", root->key);
-	printf("Name of passenger: %s\n", root->passenger->name);
+	printf("Name of passenger : %s\n", root->passenger->name);
 	if (root->passenger->level == 1) printf("Grade of seat : First class\n");
 	else if (root->passenger->level == 2) printf("Grade of seat : Business class\n");
 	else if (root->passenger->level == 3) printf("Grade of seat : Economy class\n");
-	printf("From: %c\n", root->passenger->source);
+	printf("From : %c\n", root->passenger->source);
 	hour = root->passenger->departureTime / 60;
 	min = root->passenger->departureTime % 60;
-	printf("Departure Date & time : %2d / %2d : %2d\n", root->passenger->departureDate, hour, min);
-	printf("To: %c\n", root->passenger->destination);
+	printf("Departure Date & time : %d / %d : %d\n", root->passenger->departureDate, hour, min);
+	printf("To : %c\n", root->passenger->destination);
 	hour = root->passenger->arrivalTime / 60;
 	min = root->passenger->arrivalTime % 60;
-	printf("Arrival Date & time   : %2d / %2d : %2d\n", root->passenger->arrivalDate, hour, min);
+	printf("Arrival Date & time : %d / %d : %d\n", root->passenger->arrivalDate, hour, min);
 	hour = root->passenger->flightTime / 60;
 	min = root->passenger->flightTime % 60;
-	printf("Flight time: %2d : %2d\n", hour, min);
-	printf("Flight path: ");
+	printf("Flight time : %d : %d\n", hour, min);
+	printf("Flight path : ");
 	PrintArray(root->passenger->flightPath);
 	printf("\n");
-}
-
-int height(node* root) {
-	int h;
-	if (root == NULL)
-		return 0;
-	else {
-		int left = height(root->leftc);
-		int right = height(root->rightc);
-		h = (left > right ? left : right) + 1;
-		return h;
-	}
 }
 
 
@@ -569,20 +604,32 @@ int height(node* root) {
 //이 아래로는 기본적인 RBT의 기능 구현을 위한 함수들입니다.
 
 node* isexist(node* root, int key) {
-	if (root == NULL || root->key == key) return root;
+	if (root->key < 0 || root->key == key) return root;
 	else if (root->key > key)
 		return isexist(root->leftc, key);
 	else
 		return isexist(root->rightc, key);
 }
-void Lrotate(node* root, node* cur) {
+
+
+
+void initTree() {
+	nil = (node*)malloc(sizeof(node));
+	nil->parent = nil;
+	nil->leftc = nil;
+	nil->rightc = nil;
+	nil->key = -1;
+	nil->color = 0;
+}
+
+void Lrotate(node* cur) {
 	node* par = cur->rightc;
 
 	cur->rightc = par->leftc;
-	if (par->leftc != NULL)
+	if (par->leftc->key >= 0)
 		par->leftc->parent = cur;
 	par->parent = cur->parent;
-	if (cur->parent == NULL)
+	if (cur->parent->key < 0)
 		root = par;
 	else if (cur == cur->parent->leftc) {
 		cur->parent->leftc = par;
@@ -591,14 +638,15 @@ void Lrotate(node* root, node* cur) {
 	par->leftc = cur;
 	cur->parent = par;
 }
-void Rrotate(node* root, node* cur) {
+
+void Rrotate(node* cur) {
 	node* par = cur->leftc;
 
 	cur->leftc = par->rightc;
-	if (par->rightc != NULL)
+	if (par->rightc->key >= 0)
 		par->rightc->parent = cur;
 	par->parent = cur->parent;
-	if (cur->parent == NULL)
+	if (cur->parent->key < 0)
 		root = par;
 	else if (cur == cur->parent->rightc) {
 		cur->parent->rightc = par;
@@ -607,13 +655,14 @@ void Rrotate(node* root, node* cur) {
 	par->rightc = cur;
 	cur->parent = par;
 }
-void insert_fixup(node* root, node* cur) {
-	node* y = NULL;
 
+void insert_fixup(node* cur) {
+	node* y = NULL;
+	
 	while (cur != root && cur->parent->color == 1) {
 		if (cur->parent == cur->parent->parent->leftc) {
 			y = cur->parent->parent->rightc;
-			if (y != NULL && y->color == 1) {
+			if (y->key >= 0 && y->color == 1) {
 				cur->parent->color = 0;
 				y->color = 0;
 				cur->parent->parent->color = 1;
@@ -622,39 +671,43 @@ void insert_fixup(node* root, node* cur) {
 			else {
 				if (cur == cur->parent->rightc) {
 					cur = cur->parent;
-					Lrotate(root, cur);
+					Lrotate(cur);
 				}
 				cur->parent->color = 0;
 				cur->parent->parent->color = 1;
-				Rrotate(root, cur->parent->parent);
+				Rrotate(cur->parent->parent);
 			}
 		}
 		else {
 			y = cur->parent->parent->leftc;
-			if (y != NULL && y->color == 1) {
+			if (y->key >= 0 && y->color == 1) {
 				cur->parent->color = 0;
 				y->color = 0;
 				cur->parent->parent->color = 1;
 				cur = cur->parent->parent;
+			
 			}
 			else {
 				if (cur == cur->parent->leftc) {
 					cur = cur->parent;
-					Rrotate(root, cur);
+					Rrotate(cur);
 				}
 				cur->parent->color = 0;
 				cur->parent->parent->color = 1;
-				Lrotate(root, cur->parent->parent);
+				Lrotate(cur->parent->parent);
 			}
 		}
 	}
+	
 	root->color = 0;
 }
-node* insert(node* root, node* nod) {
-	node* par = NULL;
+
+
+node* insert(node* nod) {
+	node* par = nil;
 	node* cur = root;
 
-	while (cur != NULL) {
+	while (cur != NULL && cur->key >= 0) {
 		par = cur;
 		if (nod->key < cur->key) {
 			cur = cur->leftc;
@@ -662,7 +715,7 @@ node* insert(node* root, node* nod) {
 		else cur = cur->rightc;
 	}
 	nod->parent = par;
-	if (par == NULL) {
+	if (par->key < 0) {
 		root = nod;
 	}
 	else if (nod->key < par->key) {
@@ -670,46 +723,49 @@ node* insert(node* root, node* nod) {
 	}
 	else par->rightc = nod;
 
-	nod->leftc = NULL;
-	nod->rightc = NULL;
+	nod->leftc = nil;
+	nod->rightc = nil;
 	nod->color = 1;
-	insert_fixup(root, nod);
+	insert_fixup(nod);
 
-	while (root->parent != NULL)
+	while (root->parent->key >= 0)
 		root = root->parent;
 
 	return root;
 }
+
 node* minnode(node* cur) {
 	node* temp = cur;
 
-	while (temp->leftc != NULL) {
+	while (temp->leftc->key >= 0) {
 		temp = temp->leftc;
 	}
 	return temp;
 }
+
 node* successor(node* cur) {
 	node* par = cur->parent;
 
-	if (cur->rightc != NULL)
+	if (cur->rightc->key >= 0)
 		return minnode(cur->rightc);
-	while (par != NULL && cur == par->rightc) {
+	while (par->key >= 0 && cur == par->rightc) {
 		cur = par;
 		par = par->parent;
 	}
 	return par;
 }
-void delete_fixup(node* root, node* cur) {
+
+void delete_fixup(node* cur) {
 
 	node* temp = NULL;
 
-	while (cur != NULL && cur->color == 0) {
+	while (cur->parent->key > 0 && cur->color == 0) {
 		if (cur == cur->parent->leftc) {
 			temp = cur->parent->rightc;
 			if (temp->color == 1) {
 				temp->color = 0;
 				cur->parent->color = 1;
-				Lrotate(root, cur->parent);
+				Lrotate(cur->parent);
 				temp = cur->parent->rightc;
 			}
 			if (temp->leftc->color == 0 && temp->rightc->color == 0) {
@@ -720,13 +776,13 @@ void delete_fixup(node* root, node* cur) {
 				if (temp->rightc->color == 0) {
 					temp->leftc->color = 0;
 					temp->color = 1;
-					Rrotate(root, temp);
+					Rrotate(temp);
 					temp = cur->parent->rightc;
 				}
 				temp->color = cur->parent->color;
 				cur->parent->color = 0;
 				temp->rightc->color = 0;
-				Lrotate(root, cur->parent);
+				Lrotate(cur->parent);
 				cur = root;
 			}
 		}
@@ -735,7 +791,7 @@ void delete_fixup(node* root, node* cur) {
 			if (temp->color == 1) {
 				temp->color = 0;
 				cur->parent->color = 1;
-				Rrotate(root, cur->parent);
+				Rrotate(cur->parent);
 				temp = cur->parent->leftc;
 			}
 			if (temp->rightc->color == 0 && temp->leftc->color == 0) {
@@ -746,38 +802,39 @@ void delete_fixup(node* root, node* cur) {
 				if (temp->leftc->color == 0) {
 					temp->rightc->color = 0;
 					temp->color = 1;
-					Lrotate(root, temp);
+					Lrotate(temp);
 					temp = cur->parent->leftc;
 				}
 				temp->color = cur->parent->color;
 				cur->parent->color = 0;
 				temp->leftc->color = 0;
-				Rrotate(root, cur->parent);
+				Rrotate(cur->parent);
 				cur = root;
 			}
 		}
 
 	}
-	if (cur != NULL)
+	if (cur->key > 0)
 		cur->color = 0;
 }
-node* delet(node* root, node* nod) {
+
+node* delet(node* nod) {
 	node* par = NULL;
 	node* cur = NULL;
 
-	if (nod->leftc == NULL || nod->rightc == NULL) {
+	if (nod->leftc->key < 0 || nod->rightc->key < 0) {
 		par = nod;
 	}
 	else par = successor(nod);
 
-	if (par->leftc != NULL) {
+	if (par->leftc->key >= 0) {
 		cur = par->leftc;
 	}
 	else cur = par->rightc;
-	if (cur != NULL)
+	if (cur->key >= 0)
 		cur->parent = par->parent;
 
-	if (par->parent == NULL) {
+	if (par->parent->key < 0) {
 		root = cur;
 	}
 	else {
@@ -791,8 +848,39 @@ node* delet(node* root, node* nod) {
 		nod->key = par->key;
 	}
 	if (par->color == 0) {
-		delete_fixup(root, cur);
+		delete_fixup(cur);
 	}
 
 	return root;
+}
+
+void printRBT(node *root, int level) {
+
+	if (root->key < 0) {
+		for (int i = 0; i < level; i++)
+			putchar('\t');
+		puts("~");
+	}
+	else {
+		printRBT(root->rightc, level + 1);
+		for (int i = 0; i < level; i++)
+			putchar('\t');
+		if (root->color) {
+			printf("%d[R]\n", root->key);
+		}
+		else printf("%d[B]\n", root->key);
+		printRBT(root->leftc, level + 1);
+	}
+}
+
+int height(node* root) {
+	int h;
+	if (root == NULL || root->key < 0)
+		return 0;
+	else {
+		int left = height(root->leftc);
+		int right = height(root->rightc);
+		h = (left > right ? left : right) + 1;
+		return h;
+	}
 }
